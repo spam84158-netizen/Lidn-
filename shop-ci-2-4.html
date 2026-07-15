@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shop CI — La marketplace n°1 en Côte d'Ivoire</title>
+
+<script>
+  // ⚠️ Ce script doit être le TOUT PREMIER de la page pour pouvoir détecter
+  // l'échec de chargement des scripts CDN suivants (React, Babel, Firebase...).
+  function shopciShowError(text){
+    var root = document.getElementById('root');
+    if (!root) { document.addEventListener('DOMContentLoaded', function(){ shopciShowError(text); }); return; }
+    root.innerHTML = '<div style="min-height:100vh;background:#FDEDED;color:#7A1F1F;font-family:monospace;padding:20px;white-space:pre-wrap;font-size:13px;box-sizing:border-box;">'
+      + '⚠️ ' + text + '</div>';
+  }
+  // Capture aussi les erreurs de CHARGEMENT de ressources (script/lien bloqué),
+  // qui ne remontent qu'en phase de capture, pas en phase de bulle.
+  window.addEventListener('error', function(e){
+    if (e.target && e.target.tagName === 'SCRIPT') {
+      var fallback = e.target.getAttribute && e.target.getAttribute('data-fallback');
+      if (fallback && !e.target.getAttribute('data-fallback-used')) {
+        e.target.setAttribute('data-fallback-used', '1');
+        e.target.src = fallback;
+        return;
+      }
+      shopciShowError('Une ressource n\'a pas pu se charger (bloquée ou hors ligne) :\n\n' + e.target.src + '\n\nVérifiez votre connexion internet, ou essayez avec un autre navigateur (Chrome de préférence, pas une appli comme WhatsApp/Telegram).');
+    } else if (e.message) {
+      shopciShowError('Erreur JavaScript — l\'app n\'a pas pu démarrer :\n\n' + e.message + '\n\nFichier: ' + (e.filename||'?') + ' ligne ' + (e.lineno||'?'));
+    }
+  }, true);
+  window.addEventListener('unhandledrejection', function(e){
+    shopciShowError('Erreur (promesse rejetée) :\n\n' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+  // Filet de sécurité : si rien n'a démarré après 12 secondes, on le dit clairement
+  // au lieu de laisser un écran de chargement infini.
+  window.__shopciBootTimeout = setTimeout(function(){
+    var root = document.getElementById('root');
+    if (root && root.innerText.indexOf('Chargement') !== -1) {
+      shopciShowError('L\'application met trop de temps à démarrer.\n\nCause la plus probable : une des ressources ci-dessous n\'arrive pas à se charger sur votre réseau (bloquée par l\'opérateur, un pare-feu, ou une appli de messagerie qui bride les scripts externes) :\n- cdn.tailwindcss.com\n- cdn.jsdelivr.net (React / Babel / Firebase)\n\nEssayez d\'ouvrir ce fichier directement dans Chrome (pas depuis WhatsApp/Telegram), avec une connexion internet stable, puis rechargez la page.');
+    }
+  }, 12000);
+</script>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" />
+<script src="https://cdn.tailwindcss.com" onerror="shopciShowError('cdn.tailwindcss.com n\'a pas pu se charger. Vérifiez votre connexion internet.')"></script>
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" data-fallback="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" data-fallback="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.7/babel.min.js" data-fallback="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.js" onerror="shopciShowError('jsdelivr.net (Firebase App) n\'a pas pu se charger. Vérifiez votre connexion internet.')"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-firestore-compat.js" onerror="shopciShowError('jsdelivr.net (Firestore) n\'a pas pu se charger. Vérifiez votre connexion internet.')"></script>
+<script>
+  try {
+    const firebaseConfig = {
+      apiKey: "AIzaSyBzH-n82Ieh_vcn8AK-rIDPpqtMjJeeXgw",
+      authDomain: "vibe-app-a81d4.firebaseapp.com",
+      projectId: "vibe-app-a81d4",
+      storageBucket: "vibe-app-a81d4.firebasestorage.app",
+      messagingSenderId: "973098397469",
+      appId: "1:973098397469:web:4b0f2ab4b0f50b22c53bf4",
+      measurementId: "G-XGDDKP1XQF"
+    };
+    firebase.initializeApp(firebaseConfig);
+    window.db = firebase.firestore();
+  } catch (e) {
+    window.db = null;
+    window.__fbInitError = (e && e.message) || String(e);
+  }
+</script>
+<style>
+  body{font-family:'Inter',sans-serif;margin:0}
+  .disp{font-family:'Space Grotesk',sans-serif}
+  .no-scrollbar::-webkit-scrollbar{display:none}
+  .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+  @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  @keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+</style>
+</head>
+<body>
+<div id="root"><div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#fff;background:#14110F;text-align:center;padding:24px;">Chargement de Shop CI…</div></div>
+<script type="text/babel" data-presets="react">
+
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+/* ---------------- Design tokens ---------------- */
+const T = { ink:"#14110F", papaya:"#FF6538", green:"#0E8F4E", gold:"#F4B740", sand:"#FAF6EF", charcoal:"#211F1C", line:"rgba(20,17,15,0.09)" };
+const ADMIN_EMAIL = "boydevisprimee@gmail.com";
+
+/* ---------------- Tiny icon set (inline SVG, no external deps) ---------------- */
+function Icon({ name, size=16, color="currentColor" }) {
+  const s = { width:size, height:size, stroke:color, fill:"none", strokeWidth:2, strokeLinecap:"round", strokeLinejoin:"round" };
+  switch(name){
+    case "x": return <svg viewBox="0 0 24 24" {...s}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+    case "check": return <svg viewBox="0 0 24 24" {...s}><polyline points="20 6 9 17 4 12"/></svg>;
+    case "chevronRight": return <svg viewBox="0 0 24 24" {...s}><polyline points="9 18 15 12 9 6"/></svg>;
+    case "arrowLeft": return <svg viewBox="0 0 24 24" {...s}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>;
+    case "search": return <svg viewBox="0 0 24 24" {...s}><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
+    case "mapPin": return <svg viewBox="0 0 24 24" {...s}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>;
+    case "eye": return <svg viewBox="0 0 24 24" {...s}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
+    case "chat": return <svg viewBox="0 0 24 24" {...s}><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-4-1L3 20l1.2-4A8.38 8.38 0 0 1 3.5 12 8.5 8.5 0 0 1 12 3.5a8.38 8.38 0 0 1 9 8z"/></svg>;
+    case "plus": return <svg viewBox="0 0 24 24" {...s}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+    case "crown": return <svg viewBox="0 0 24 24" {...s} fill={color} stroke="none"><path d="M3 8l4 3 5-6 5 6 4-3-2 11H5L3 8z"/></svg>;
+    case "camera": return <svg viewBox="0 0 24 24" {...s}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
+    case "clock": return <svg viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+    case "shield": return <svg viewBox="0 0 24 24" {...s}><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg>;
+    case "star": return <svg viewBox="0 0 24 24" {...s} fill={color} stroke="none"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg>;
+    case "badgeCheck": return <svg viewBox="0 0 24 24" {...s}><path d="M12 2l2.4 1.3 2.7-.2 1.3 2.4 2.4 1.3-.2 2.7 1.3 2.4-1.3 2.4.2 2.7-2.4 1.3-1.3 2.4-2.7-.2L12 22l-2.4-1.3-2.7.2-1.3-2.4-2.4-1.3.2-2.7L2 12l1.3-2.4-.2-2.7 2.4-1.3 1.3-2.4 2.7.2z"/><polyline points="9 12 11 14 15.5 9.5"/></svg>;
+    case "ban": return <svg viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>;
+    case "sparkles": return <svg viewBox="0 0 24 24" {...s} fill={color} stroke="none"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z"/></svg>;
+    case "bag": return <svg viewBox="0 0 24 24" {...s}><path d="M6 2l-2 5v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-2-5"/><line x1="3" y1="7" x2="21" y2="7"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>;
+    case "upload": return <svg viewBox="0 0 24 24" {...s}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>;
+    case "lock": return <svg viewBox="0 0 24 24" {...s}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
+    case "trending": return <svg viewBox="0 0 24 24" {...s}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
+    default: return null;
+  }
+}
+
+/* ---------------- Mock data ---------------- */
+const CITIES = ["Abidjan","Bouaké","Yamoussoukro","San-Pédro","Korhogo","Daloa","Man","Gagnoa"];
+const FIRST = ["Kouadio","Aya","Yao","Adjoua","Konan","Akissi","Kouassi","Affoué","N'Guessan","Amenan","Koffi","Ahou","Bamba","Fatou","Diabaté","Coulibaly","Traoré","Ouattara","Kouamé","Assita"];
+const LAST = ["A.","K.","N.","B.","T.","S.","D.","M.","R.","L."];
+const CATS = [
+  { id:"phones", label:"Téléphones", min:25000, max:450000, seed:"phone", imgKeyword:"smartphone" },
+  { id:"cars", label:"Voitures", min:1500000, max:12000000, seed:"car", imgKeyword:"car" },
+  { id:"homes", label:"Immobilier", min:8000000, max:85000000, seed:"house", imgKeyword:"house" },
+  { id:"clothes", label:"Vêtements", min:3000, max:35000, seed:"clothes", imgKeyword:"clothing" },
+  { id:"shoes", label:"Chaussures", min:5000, max:60000, seed:"shoes", imgKeyword:"sneakers" },
+  { id:"jewelry", label:"Bijoux", min:8000, max:250000, seed:"jewelry", imgKeyword:"jewelry" },
+  { id:"bikes", label:"Vélos & Motos", min:45000, max:950000, seed:"bike", imgKeyword:"motorcycle" },
+  { id:"electro", label:"Électroménager", min:15000, max:380000, seed:"electro", imgKeyword:"appliance" },
+];
+const TITLES = {
+  phones:["iPhone 13 Pro Max","Samsung Galaxy A54","Infinix Note 30","Tecno Camon 20","iPhone 11","Samsung S22 Ultra","Redmi Note 12","Oppo Reno 8"],
+  cars:["Toyota Corolla 2018","Hyundai Tucson 2020","Mercedes Classe C","Kia Picanto 2019","Toyota Rav4","Peugeot 508","Nissan Qashqai","Toyota Hilux"],
+  homes:["Villa 4 pièces climatisée","Terrain titré 600m²","Appartement 3 pièces meublé","Duplex avec piscine","Studio meublé centre-ville","Maison 5 chambres"],
+  clothes:["Ensemble wax brodé","Robe soirée élégante","Costume homme 3 pièces","Jean slim premium","Boubou traditionnel"],
+  shoes:["Sneakers Nike Air","Sandales cuir artisanales","Mocassins homme","Escarpins femme","Baskets running"],
+  jewelry:["Collier plaqué or","Bracelet chaîne argent","Boucles d'oreilles perles","Bague solitaire","Parure complète mariage"],
+  bikes:["Moto Sanili 125","Vélo VTT tout-terrain","Scooter électrique","Moto Haojue DK150","Tricycle utilitaire"],
+  electro:["Réfrigérateur Samsung 350L","Climatiseur split 1.5CV","Machine à laver 7kg","Congélateur 4 tiroirs","Cuisinière 4 feux gaz"],
+};
+const BADGES = [
+  { key:"none", label:"Standard", color:"#9A9488" },
+  { key:"w1", label:"Premium 1 semaine", color:T.gold },
+  { key:"w2", label:"Premium 2 semaines", color:T.papaya },
+  { key:"m1", label:"Premium 1 mois", color:T.green },
+];
+function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+function pick(arr){ return arr[rand(0,arr.length-1)]; }
+function priceFmt(n){ return n.toLocaleString("fr-FR").replace(/,/g," ") + " FCFA"; }
+function catImg(cat, uniqueId){ return `https://loremflickr.com/480/360/${cat.imgKeyword}?lock=${uniqueId}`; }
+function hashStr(str){ let h=0; for(let i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))>>>0; } return h; }
+function identityForDevice(deviceId){
+  const h = hashStr(deviceId);
+  return {
+    name: `${FIRST[h % FIRST.length]} ${LAST[Math.floor(h/7) % LAST.length]}`,
+    avatar: `https://i.pravatar.cc/150?img=${(h % 70) + 1}`,
+    city: CITIES[Math.floor(h/13) % CITIES.length],
+  };
+}
+
+function genSellers(n){
+  const out=[];
+  for(let i=0;i<n;i++){
+    const badge = BADGES[rand(0,3)];
+    out.push({ id:"s"+i, name:`${pick(FIRST)} ${pick(LAST)}`, avatar:`https://i.pravatar.cc/150?img=${(i%70)+1}`,
+      badge, city:pick(CITIES), listingsCount:rand(15,20), views:rand(300,9800), sales:rand(2,140), discussions:rand(5,260), verified:Math.random()>0.25 });
+  }
+  return out;
+}
+function genListings(sellers){
+  const out=[]; let id=0;
+  sellers.forEach((seller)=>{
+    for(let i=0;i<seller.listingsCount;i++){
+      const cat = pick(CATS); const title = pick(TITLES[cat.id]);
+      out.push({ id:"l"+id++, title, catId:cat.id, price:rand(cat.min,cat.max), city:seller.city,
+        img:catImg(cat, id), sellerId:seller.id, views:rand(10,2400), discussions:rand(0,40), sales:rand(0,20), status:"active", createdDaysAgo:rand(0,40) });
+    }
+  });
+  return out;
+}
+
+/* ---------------- Local persistence (works with a plain HTML file — no backend) ---------------- */
+function lsGet(key, fallback){
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+}
+function lsSet(key, value){ try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
+
+/* ---------------- Identifiant d'appareil (anonyme, sans compte réel) ---------------- */
+function getDeviceId(){
+  const fresh = "dev_" + Date.now() + "_" + Math.random().toString(36).slice(2,10);
+  try {
+    let id = localStorage.getItem("shopci_deviceId");
+    if (!id) { id = fresh; localStorage.setItem("shopci_deviceId", id); }
+    return id;
+  } catch (e) {
+    // localStorage bloqué (navigateur privé, webview restreinte type WhatsApp/Telegram, cookies tiers désactivés…)
+    return fresh;
+  }
+}
+const DEVICE_ID = getDeviceId();
+const db = window.db;
+
+/* ---------------- Logo (original SCI monogram) ---------------- */
+function Logo({ dark, size=32 }) {
+  return (
+    <div className="flex items-center gap-2 select-none">
+      <svg width={size} height={size} viewBox="0 0 48 48">
+        <defs>
+          <linearGradient id="sciGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={T.papaya}/>
+            <stop offset="100%" stopColor={T.gold}/>
+          </linearGradient>
+        </defs>
+        <rect x="1" y="1" width="46" height="46" rx="14" fill="url(#sciGrad)"/>
+        <rect x="1" y="1" width="46" height="46" rx="14" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5"/>
+        <text x="24" y="30" textAnchor="middle" fontFamily="'Space Grotesk',sans-serif" fontWeight="700" fontSize="15" fill="white" letterSpacing="0.5">SCI</text>
+      </svg>
+      <span className="text-lg font-bold tracking-tight disp" style={{ color: dark ? "#fff" : T.charcoal }}>
+        Shop <span style={{ color:T.papaya }}>CI</span>
+      </span>
+    </div>
+  );
+}
+
+function Badge({ badge }) {
+  if (!badge || badge.key==="none") return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full text-white" style={{ backgroundColor: badge.color }}>
+      <Icon name="crown" size={11} color="#fff"/> {badge.label}
+    </span>
+  );
+}
+
+/* ================= LANDING ================= */
+function Landing({ onContinue }) {
+  const [showBtn, setShowBtn] = useState(true);
+  const scrollerRef = useRef(null);
+  const handleScroll = useCallback(() => {
+    const el = scrollerRef.current; if (!el) return;
+    if (el.scrollTop > el.clientHeight * 0.35) setShowBtn(true);
+  }, []);
+  const stats = ["2 340 annonces publiées cette semaine","812 vendeurs vérifiés","48 000+ acheteurs actifs","Livraison dans les 8 régions"];
+  return (
+    <div ref={scrollerRef} onScroll={handleScroll} className="h-screen w-full overflow-y-scroll relative" style={{ background:T.ink }}>
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-32 -left-20 w-96 h-96 rounded-full opacity-30 blur-3xl animate-pulse" style={{ background:T.papaya }}/>
+        <div className="absolute top-1/3 -right-24 w-[28rem] h-[28rem] rounded-full opacity-20 blur-3xl animate-pulse" style={{ background:T.green }}/>
+        <div className="absolute bottom-10 left-1/4 w-72 h-72 rounded-full opacity-20 blur-3xl animate-pulse" style={{ background:T.gold }}/>
+      </div>
+      <div className="relative z-10 border-b border-white/10 overflow-hidden py-2" style={{ background:"rgba(255,255,255,0.03)" }}>
+        <div className="flex whitespace-nowrap" style={{ width:"max-content", animation:"marquee 22s linear infinite" }}>
+          {[...stats, ...stats].map((s,i)=>(
+            <span key={i} className="text-white/60 text-xs mx-6 flex items-center gap-2"><Icon name="sparkles" size={12} color={T.gold}/> {s}</span>
+          ))}
+        </div>
+      </div>
+      <div className="relative z-10 px-6 pt-6"><Logo dark/></div>
+      <div className="relative z-10 min-h-[80vh] flex flex-col justify-center px-6 max-w-xl mx-auto text-center">
+        <div className="mb-5 inline-flex items-center gap-2 self-center px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background:"rgba(244,183,64,0.15)", color:T.gold, border:`1px solid ${T.gold}44` }}>
+          <Icon name="star" size={12} color={T.gold}/> La marketplace n°1 en Côte d'Ivoire
+        </div>
+        <h1 className="disp text-white font-bold leading-[1.05] mb-5" style={{ fontSize:"clamp(2rem, 6vw, 3.2rem)" }}>
+          Bienvenue sur <span style={{ color:T.papaya }}>Shop CI</span>
+        </h1>
+        <p className="text-white/70 text-base leading-relaxed mb-10">
+          La plateforme n°1 en Côte d'Ivoire pour l'achat et la revente. Des milliers d'annonces, des vendeurs vérifiés et des offres à prix réduits vous attendent.
+        </p>
+        <div className="flex flex-col items-center gap-2 text-white/40 text-xs animate-bounce">
+          <span>Faites défiler pour continuer</span>
+          <div style={{ transform:"rotate(90deg)" }}><Icon name="chevronRight" size={18} color="rgba(255,255,255,0.4)"/></div>
+        </div>
+      </div>
+      <div className="relative z-10 grid grid-cols-3 gap-3 px-6 max-w-xl mx-auto pb-40">
+        {[{icon:"bag",label:"12 400+ annonces"},{icon:"shield",label:"Vendeurs vérifiés"},{icon:"trending",label:"Prix négociables"}].map((f,i)=>(
+          <div key={i} className="rounded-2xl p-4 text-center" style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)" }}>
+            <div className="flex justify-center mb-2"><Icon name={f.icon} size={20} color={T.papaya}/></div>
+            <span className="text-white/70 text-[11px] leading-tight block">{f.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="fixed bottom-0 left-0 right-0 z-20 flex justify-center pb-6 px-6 transition-all duration-500"
+        style={{ opacity:showBtn?1:0, transform:showBtn?"translateY(0)":"translateY(20px)", pointerEvents:showBtn?"auto":"none", background:"linear-gradient(to top, rgba(20,17,15,0.95), transparent)" }}>
+        <button onClick={onContinue} className="disp w-full max-w-sm py-4 rounded-2xl font-semibold text-white flex items-center justify-center gap-2 shadow-2xl active:scale-95 transition-transform"
+          style={{ background:`linear-gradient(135deg, ${T.papaya}, #FF8A5C)` }}>
+          Continuer <Icon name="chevronRight" size={18} color="#fff"/>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ================= AUTH ================= */
+function Auth({ onDone }) {
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const saveUserAndContinue = (payload) => {
+    if (!db) { setError("Firebase indisponible — l'inscription est obligatoire, réessayez avec une connexion internet."); return; }
+    setLoading(true); setError("");
+    db.collection("users").doc(DEVICE_ID).set({ ...payload, deviceId: DEVICE_ID, createdAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true })
+      .then(()=>{ setLoading(false); onDone(payload); })
+      .catch(()=>{ setLoading(false); setError("Échec de l'inscription — vérifiez votre connexion internet et réessayez."); });
+  };
+
+  const submit = () => {
+    if (phone.replace(/\D/g,"").length < 8) { setError("Entrez un numéro de téléphone valide."); return; }
+    saveUserAndContinue({ method:"phone", phone });
+  };
+  return (
+    <div className="min-h-screen flex flex-col px-6 py-8" style={{ background:T.sand }}>
+      <Logo/>
+      <div className="flex-1 flex flex-col justify-center max-w-sm mx-auto w-full">
+        <h2 className="disp text-2xl font-bold mb-1" style={{ color:T.charcoal }}>Créer votre compte</h2>
+        <p className="text-sm mb-8" style={{ color:"#6B655C" }}>Rejoignez des milliers de vendeurs et acheteurs ivoiriens. L'inscription est obligatoire pour continuer.</p>
+        <label className="text-xs font-semibold mb-2 block" style={{ color:T.charcoal }}>Numéro de téléphone</label>
+        <div className="flex items-center gap-2 mb-4 rounded-xl px-4 py-3.5 bg-white" style={{ border:`1.5px solid ${error ? "#D64545" : T.line}` }}>
+          <span className="text-sm font-semibold" style={{ color:T.charcoal }}>🇨🇮 +225</span>
+          <input value={phone} onChange={(e)=>{ setPhone(e.target.value); setError(""); }} onKeyDown={(e)=>{ if(e.key==="Enter") submit(); }} placeholder="XX XX XX XX XX" className="flex-1 outline-none text-sm bg-transparent" inputMode="numeric"/>
+        </div>
+        {error && <p className="text-xs mb-3" style={{ color:"#D64545" }}>{error}</p>}
+        <button onClick={submit} disabled={loading} className="w-full py-3.5 rounded-xl font-semibold text-white mb-4 flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-60" style={{ background:T.papaya }}>
+          {loading ? "Inscription en cours…" : "Recevoir le code SMS"}
+        </button>
+        <div className="flex items-center gap-3 my-2">
+          <div className="flex-1 h-px" style={{ background:T.line }}/><span className="text-xs" style={{ color:"#A39C90" }}>ou</span><div className="flex-1 h-px" style={{ background:T.line }}/>
+        </div>
+        <button onClick={()=>saveUserAndContinue({ method:"google" })} disabled={loading} className="w-full py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 mt-2 bg-white active:scale-95 transition-transform disabled:opacity-60" style={{ border:`1.5px solid ${T.line}`, color:T.charcoal }}>
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3c-7.6 0-14.1 4.3-17.7 10.7z"/><path fill="#4CAF50" d="M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 36.4 26.7 37 24 37c-5.3 0-9.7-3.4-11.3-8l-6.6 5.1C9.8 40.6 16.3 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.6l6.2 5.2C39.9 36.6 43 30.9 43 24c0-1.4-.1-2.7-.4-3.5z"/></svg>
+          Continuer avec Google
+        </button>
+        <p className="text-[11px] text-center mt-6" style={{ color:"#A39C90" }}>En continuant, vous acceptez les Conditions d'utilisation de Shop CI.</p>
+      </div>
+    </div>
+  );
+}
+
+/* ================= PROFILE CHOICE ================= */
+function ProfileChoice({ onChoose }) {
+  return (
+    <div className="min-h-screen flex flex-col px-6 py-8" style={{ background:T.sand }}>
+      <Logo/>
+      <div className="flex-1 flex flex-col justify-center max-w-sm mx-auto w-full">
+        <h2 className="disp text-2xl font-bold mb-1" style={{ color:T.charcoal }}>Vous êtes plutôt…</h2>
+        <p className="text-sm mb-8" style={{ color:"#6B655C" }}>Choisissez votre profil pour commencer.</p>
+        {[{key:"seller",label:"Vendeur",desc:"Je veux publier et vendre mes articles",icon:"bag"},{key:"buyer",label:"Acheteur",desc:"Je veux parcourir et acheter des annonces",icon:"search"}].map((p)=>(
+          <button key={p.key} onClick={()=>onChoose(p.key)} className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white mb-3 text-left active:scale-95 transition-transform" style={{ border:`1.5px solid ${T.line}` }}>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background:`${T.papaya}15` }}><Icon name={p.icon} size={20} color={T.papaya}/></div>
+            <div className="flex-1"><div className="font-semibold text-sm" style={{ color:T.charcoal }}>{p.label}</div><div className="text-xs" style={{ color:"#8A8378" }}>{p.desc}</div></div>
+            <Icon name="chevronRight" size={18} color="#C7C0B4"/>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================= REFERRAL ================= */
+function Referral({ onNext }) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const VALID_CODE = "CD-2026-SHOP";
+  const submit = () => {
+    if (code.trim() === "") { onNext(""); return; }
+    if (code.trim().toUpperCase() === VALID_CODE) { setError(""); onNext(code); }
+    else setError("Code de parrainage invalide.");
+  };
+  return (
+    <div className="min-h-screen flex flex-col px-6 py-8" style={{ background:T.sand }}>
+      <Logo/>
+      <div className="flex-1 flex flex-col justify-center max-w-sm mx-auto w-full">
+        <h2 className="disp text-2xl font-bold mb-1" style={{ color:T.charcoal }}>Code de parrainage</h2>
+        <p className="text-sm mb-8" style={{ color:"#6B655C" }}>Facultatif — entrez le code d'un ami si vous en avez un.</p>
+        <input value={code} onChange={(e)=>{ setCode(e.target.value.toUpperCase()); setError(""); }} placeholder="Ex. CD-2026-SHOP" className="w-full rounded-xl px-4 py-3.5 bg-white text-sm outline-none mb-2" style={{ border:`1.5px solid ${error ? "#D64545" : T.line}` }}/>
+        {error && <p className="text-xs mb-3" style={{ color:"#D64545" }}>{error}</p>}
+        <button onClick={submit} className="w-full py-3.5 rounded-xl font-semibold text-white active:scale-95 transition-transform mt-2" style={{ background:T.papaya }}>Continuer</button>
+        <button onClick={()=>onNext("")} className="w-full py-3 text-sm font-medium mt-2" style={{ color:"#8A8378" }}>Passer cette étape</button>
+      </div>
+    </div>
+  );
+}
+
+
+/* ================= SUBSCRIPTION MODAL (with Wave receipt capture) ================= */
+function SubscriptionModal({ onClose, onRequestSubmitted }) {
+  const [plan, setPlan] = useState("m1");
+  const [step, setStep] = useState("choose"); // choose | pay | receipt | sent
+  const [receipt, setReceipt] = useState(null); // dataURL
+  const fileRef = useRef(null);
+  const plans = [{ key:"w2", label:"2 semaines", price:2000 }, { key:"m1", label:"1 mois", price:4000 }];
+  const active = plans.find((p)=>p.key===plan);
+
+  const handleFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setReceipt(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+
+  const submitRequest = () => {
+    if (!db) { setError("Firebase indisponible — impossible d'envoyer la demande pour le moment."); return; }
+    setSending(true); setError("");
+    db.collection("subscriptionRequests").add({
+      deviceId: DEVICE_ID, plan: active.label, price: active.price, receipt: receipt || null,
+      status: "pending", createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(()=>{
+      setSending(false); setStep("sent");
+      setTimeout(()=>onRequestSubmitted(), 900);
+    }).catch((err)=>{
+      setSending(false); setError("Échec de l'envoi — vérifiez votre connexion internet et réessayez.");
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+      <div className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-white p-6 relative" style={{ animation:"slideUp 0.3s ease", maxHeight:"92vh", overflowY:"auto" }}>
+        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center" style={{ background:"#F2EEE6" }}>
+          <Icon name="x" size={16} color={T.charcoal}/>
+        </button>
+
+        {step === "choose" && (
+          <>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background:`${T.gold}20` }}><Icon name="crown" size={20} color={T.gold}/></div>
+            <h3 className="disp text-xl font-bold mb-1" style={{ color:T.charcoal }}>Passez Premium</h3>
+            <p className="text-sm mb-5" style={{ color:"#6B655C" }}>Publications illimitées, badge vérifié et visibilité maximale sur vos annonces.</p>
+            <div className="space-y-3 mb-5">
+              {plans.map((p)=>(
+                <button key={p.key} onClick={()=>setPlan(p.key)} className="w-full flex items-center justify-between p-4 rounded-2xl text-left transition-all"
+                  style={{ border: plan===p.key?`2px solid ${T.papaya}`:`1.5px solid ${T.line}`, background: plan===p.key?`${T.papaya}08`:"white" }}>
+                  <div><div className="font-semibold text-sm" style={{ color:T.charcoal }}>{p.label}</div><div className="text-xs" style={{ color:"#8A8378" }}>Publications illimitées</div></div>
+                  <div className="disp font-bold" style={{ color:T.papaya }}>{priceFmt(p.price)}</div>
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>setStep("pay")} className="w-full py-3.5 rounded-xl font-semibold text-white active:scale-95 transition-transform" style={{ background:T.papaya }}>
+              Continuer avec {active.label} — {priceFmt(active.price)}
+            </button>
+          </>
+        )}
+
+        {step === "pay" && (
+          <>
+            <button onClick={()=>setStep("choose")} className="mb-3 flex items-center gap-1 text-xs font-medium" style={{ color:"#8A8378" }}><Icon name="arrowLeft" size={13}/> Retour</button>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background:"#00A86B15" }}><span className="font-bold text-sm" style={{ color:"#00A86B" }}>Wave</span></div>
+            <h3 className="disp text-xl font-bold mb-1" style={{ color:T.charcoal }}>1. Effectuez le paiement</h3>
+            <p className="text-sm mb-5" style={{ color:"#6B655C" }}>Copiez ces informations et ouvrez votre application Wave pour envoyer {priceFmt(active.price)}.</p>
+            <div className="rounded-2xl p-4 mb-5 space-y-2" style={{ background:"#F2EEE6" }}>
+              <div className="flex justify-between items-center text-sm">
+                <span style={{ color:"#8A8378" }}>Numéro Wave</span>
+                <span className="font-semibold flex items-center gap-2" style={{ color:T.charcoal }}>
+                  225 07 97 19 32 25
+                  <button onClick={()=>navigator.clipboard && navigator.clipboard.writeText("2250797193225")} className="text-[10px] px-2 py-1 rounded-full text-white" style={{ background:T.papaya }}>Copier</button>
+                </span>
+              </div>
+              <div className="flex justify-between text-sm"><span style={{ color:"#8A8378" }}>Nom de l'agent</span><span className="font-semibold" style={{ color:T.charcoal }}>KOUADIO A</span></div>
+              <div className="flex justify-between text-sm"><span style={{ color:"#8A8378" }}>Montant</span><span className="font-semibold" style={{ color:T.papaya }}>{priceFmt(active.price)}</span></div>
+            </div>
+            <button onClick={()=>setStep("receipt")} className="w-full py-3.5 rounded-xl font-semibold text-white active:scale-95 transition-transform" style={{ background:"#00A86B" }}>
+              J'ai effectué le paiement
+            </button>
+            <p className="text-[11px] text-center mt-3" style={{ color:"#A39C90" }}>Étape suivante : ajoutez la capture du reçu de paiement.</p>
+          </>
+        )}
+
+        {step === "receipt" && (
+          <>
+            <button onClick={()=>setStep("pay")} className="mb-3 flex items-center gap-1 text-xs font-medium" style={{ color:"#8A8378" }}><Icon name="arrowLeft" size={13}/> Retour</button>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background:`${T.papaya}15` }}><Icon name="camera" size={20} color={T.papaya}/></div>
+            <h3 className="disp text-xl font-bold mb-1" style={{ color:T.charcoal }}>2. Ajoutez le reçu</h3>
+            <p className="text-sm mb-5" style={{ color:"#6B655C" }}>Importez la capture d'écran du reçu Wave reçu après votre paiement.</p>
+
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFile} className="hidden"/>
+            {!receipt ? (
+              <button onClick={()=>fileRef.current && fileRef.current.click()} className="w-full h-40 rounded-2xl flex flex-col items-center justify-center gap-2 mb-5" style={{ background:"#F2EEE6", border:`1.5px dashed ${T.line}` }}>
+                <Icon name="upload" size={22} color="#A39C90"/>
+                <span className="text-xs" style={{ color:"#A39C90" }}>Importer la capture du reçu</span>
+              </button>
+            ) : (
+              <div className="relative mb-5">
+                <img src={receipt} alt="Reçu Wave" className="w-full max-h-56 object-contain rounded-2xl" style={{ border:`1.5px solid ${T.line}` }}/>
+                <button onClick={()=>fileRef.current && fileRef.current.click()} className="absolute bottom-2 right-2 text-[11px] font-semibold px-3 py-1.5 rounded-full text-white" style={{ background:T.charcoal }}>Changer</button>
+              </div>
+            )}
+
+            <button disabled={!receipt || sending} onClick={submitRequest} className="w-full py-3.5 rounded-xl font-semibold text-white disabled:opacity-40 active:scale-95 transition-transform" style={{ background:T.papaya }}>
+              {sending ? "Envoi en cours…" : "Envoyer ma demande d'abonnement"}
+            </button>
+            {error && <p className="text-xs text-center mt-2" style={{ color:"#D64545" }}>{error}</p>}
+            <p className="text-[11px] text-center mt-3" style={{ color:"#A39C90" }}>L'administrateur va vérifier votre reçu et activer votre abonnement.</p>
+          </>
+        )}
+
+        {step === "sent" && (
+          <div className="py-8 flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ background:`${T.gold}20` }}><Icon name="clock" size={26} color={T.gold}/></div>
+            <h3 className="text-lg font-bold mb-1" style={{ color:T.charcoal }}>Demande envoyée !</h3>
+            <p className="text-sm" style={{ color:"#8A8378" }}>Votre abonnement sera activé dès que l'administrateur aura vérifié votre reçu de paiement.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ================= LISTING CARD ================= */
+function ListingCard({ listing, seller, onOpen }) {
+  return (
+    <button onClick={()=>onOpen(listing)} className="text-left rounded-2xl overflow-hidden bg-white" style={{ border:`1px solid ${T.line}` }}>
+      <div className="relative">
+        <img src={listing.img} alt={listing.title} className="w-full h-32 object-cover" loading="lazy"/>
+        {seller && seller.badge && seller.badge.key !== "none" && (
+          <div className="absolute top-2 left-2">
+            <span className="text-[9px] font-bold px-2 py-1 rounded-full text-white flex items-center gap-1" style={{ background:seller.badge.color }}>
+              <Icon name="crown" size={9} color="#fff"/> Premium
+            </span>
+          </div>
+        )}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[10px]">
+          <span className="flex items-center gap-0.5"><Icon name="eye" size={10} color="#fff"/> {listing.views}</span>
+          <span className="flex items-center gap-0.5"><Icon name="chat" size={10} color="#fff"/> {listing.discussions||0}</span>
+          <span className="flex items-center gap-0.5"><Icon name="bag" size={10} color="#fff"/> {listing.sales||0}</span>
+        </div>
+      </div>
+      <div className="p-2.5">
+        <div className="text-xs font-medium line-clamp-1 mb-1" style={{ color:T.charcoal }}>{listing.title}</div>
+        <div className="disp text-sm font-bold mb-1" style={{ color:T.papaya }}>{priceFmt(listing.price)}</div>
+        <div className="flex items-center gap-1 text-[10px]" style={{ color:"#A39C90" }}><Icon name="mapPin" size={10} color="#A39C90"/> {listing.city}</div>
+      </div>
+    </button>
+  );
+}
+
+/* ================= PUBLISH FORM ================= */
+function PublishForm({ onClose, onSubmit, subscribed }) {
+  const [title, setTitle] = useState("");
+  const [cat, setCat] = useState(CATS[0].id);
+  const [price, setPrice] = useState("");
+  const [city, setCity] = useState(CITIES[0]);
+  const [photos, setPhotos] = useState([]); // dataURLs
+  const fileRef = useRef(null);
+
+  const handleFiles = (e) => {
+    const files = Array.from(e.target.files || []).slice(0, 5 - photos.length);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => setPhotos((prev) => [...prev, reader.result]);
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  };
+  const removePhoto = (i) => setPhotos((prev) => prev.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className="flex items-center gap-3 px-5 py-4 sticky top-0 bg-white z-10" style={{ borderBottom:`1px solid ${T.line}` }}>
+        <button onClick={onClose}><Icon name="arrowLeft" size={20} color={T.charcoal}/></button>
+        <h3 className="disp font-bold" style={{ color:T.charcoal }}>Publier une annonce</h3>
+      </div>
+      <div className="p-5 max-w-md mx-auto">
+        {!subscribed && (
+          <div className="rounded-xl p-3 mb-5 text-xs flex items-start gap-2" style={{ background:`${T.gold}15`, color:"#8A6A0E" }}>
+            <Icon name="clock" size={14} color="#8A6A0E"/> Sans abonnement actif, votre annonce sera envoyée à l'administrateur pour validation avant publication.
+          </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleFiles} className="hidden"/>
+        {photos.length === 0 ? (
+          <button type="button" onClick={()=>fileRef.current && fileRef.current.click()} className="w-full h-32 rounded-xl flex flex-col items-center justify-center mb-4 gap-1" style={{ background:"#F2EEE6", border:`1.5px dashed ${T.line}` }}>
+            <Icon name="camera" size={22} color="#A39C90"/><span className="text-xs" style={{ color:"#A39C90" }}>Ajouter des photos</span>
+          </button>
+        ) : (
+          <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar">
+            {photos.map((p, i) => (
+              <div key={i} className="relative flex-shrink-0">
+                <img src={p} className="w-20 h-20 rounded-xl object-cover" style={{ border:`1px solid ${T.line}` }}/>
+                <button type="button" onClick={()=>removePhoto(i)} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center"><Icon name="x" size={10} color="#fff"/></button>
+              </div>
+            ))}
+            {photos.length < 5 && (
+              <button type="button" onClick={()=>fileRef.current && fileRef.current.click()} className="w-20 h-20 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background:"#F2EEE6", border:`1.5px dashed ${T.line}` }}>
+                <Icon name="plus" size={18} color="#A39C90"/>
+              </button>
+            )}
+          </div>
+        )}
+        <label className="text-xs font-semibold mb-1.5 block" style={{ color:T.charcoal }}>Titre de l'annonce</label>
+        <input value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="Ex. iPhone 13 Pro Max 256Go" className="w-full rounded-xl px-4 py-3 bg-white text-sm outline-none mb-4" style={{ border:`1.5px solid ${T.line}` }}/>
+        <label className="text-xs font-semibold mb-1.5 block" style={{ color:T.charcoal }}>Catégorie</label>
+        <select value={cat} onChange={(e)=>setCat(e.target.value)} className="w-full rounded-xl px-4 py-3 bg-white text-sm outline-none mb-4" style={{ border:`1.5px solid ${T.line}` }}>
+          {CATS.map((c)=><option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+        <label className="text-xs font-semibold mb-1.5 block" style={{ color:T.charcoal }}>Prix (FCFA)</label>
+        <input value={price} onChange={(e)=>setPrice(e.target.value.replace(/\D/g,""))} placeholder="Ex. 150000" inputMode="numeric" className="w-full rounded-xl px-4 py-3 bg-white text-sm outline-none mb-4" style={{ border:`1.5px solid ${T.line}` }}/>
+        <label className="text-xs font-semibold mb-1.5 block" style={{ color:T.charcoal }}>Ville</label>
+        <select value={city} onChange={(e)=>setCity(e.target.value)} className="w-full rounded-xl px-4 py-3 bg-white text-sm outline-none mb-6" style={{ border:`1.5px solid ${T.line}` }}>
+          {CITIES.map((c)=><option key={c} value={c}>{c}</option>)}
+        </select>
+        <button disabled={!title || !price || photos.length===0} onClick={()=>onSubmit({ title, catId:cat, price:Number(price), city, photos })} className="w-full py-3.5 rounded-xl font-semibold text-white disabled:opacity-40 active:scale-95 transition-transform" style={{ background:T.papaya }}>
+          {subscribed ? "Publier l'annonce" : "Envoyer pour validation"}
+        </button>
+        {photos.length===0 && <p className="text-[11px] text-center mt-2" style={{ color:"#A39C90" }}>Ajoutez au moins une photo pour continuer.</p>}
+      </div>
+    </div>
+  );
+}
+
+
+/* ================= ADMIN LOGIN GATE ================= */
+function AdminLogin({ onSuccess, onClose }) {
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const submit = () => {
+    if (email.trim().toLowerCase() === ADMIN_EMAIL) { onSuccess(); }
+    else setError("Accès refusé — cet email n'est pas administrateur.");
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+      <div className="w-full max-w-sm rounded-3xl bg-white p-6 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center" style={{ background:"#F2EEE6" }}><Icon name="x" size={16} color={T.charcoal}/></button>
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background:`${T.charcoal}10` }}><Icon name="lock" size={20} color={T.charcoal}/></div>
+        <h3 className="disp text-xl font-bold mb-1" style={{ color:T.charcoal }}>Connexion administrateur</h3>
+        <p className="text-sm mb-5" style={{ color:"#6B655C" }}>Connectez-vous avec l'email administrateur pour gérer les annonces et abonnements.</p>
+        <input value={email} onChange={(e)=>{ setEmail(e.target.value); setError(""); }} placeholder="admin@shopci.ci" className="w-full rounded-xl px-4 py-3 bg-white text-sm outline-none mb-2" style={{ border:`1.5px solid ${T.line}` }}/>
+        {error && <p className="text-xs mb-3" style={{ color:"#D64545" }}>{error}</p>}
+        <button onClick={submit} className="w-full py-3.5 rounded-xl font-semibold text-white active:scale-95 transition-transform mt-2" style={{ background:T.charcoal }}>Se connecter</button>
+        <p className="text-[11px] text-center mt-4" style={{ color:"#A39C90" }}>Démo : cette vérification est côté navigateur uniquement. En production, utilisez Firebase Auth + des règles serveur.</p>
+      </div>
+    </div>
+  );
+}
+
+/* ================= ADMIN PANEL ================= */
+function AdminPanel({ onClose, pending, subRequests, sellers, listings, onDecision, onSubDecision, onGrantSub }) {
+  const [tab, setTab] = useState("pending");
+  const [refuseTarget, setRefuseTarget] = useState(null);
+  const [refuseMsg, setRefuseMsg] = useState("Votre annonce a été refusée car votre abonnement Premium n'est pas actif.");
+  const [zoomImg, setZoomImg] = useState(null);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className="flex items-center gap-3 px-5 py-4 sticky top-0 bg-white z-10" style={{ borderBottom:`1px solid ${T.line}` }}>
+        <button onClick={onClose}><Icon name="arrowLeft" size={20} color={T.charcoal}/></button>
+        <div>
+          <h3 className="disp font-bold" style={{ color:T.charcoal }}>Panneau d'administration</h3>
+          <p className="text-[11px]" style={{ color:"#8A8378" }}>Connecté : {ADMIN_EMAIL}</p>
+        </div>
+      </div>
+      <div className="flex gap-1 px-5 pt-4 flex-wrap">
+        {[
+          { key:"pending", label:`Annonces en attente (${pending.length})` },
+          { key:"subs", label:`Abonnements (${subRequests.filter(r=>r.status==="pending").length})` },
+          { key:"users", label:`Utilisateurs (${sellers.length})` },
+          { key:"listings", label:`Annonces (${listings.length})` },
+        ].map((t)=>(
+          <button key={t.key} onClick={()=>setTab(t.key)} className="px-3 py-2 rounded-lg text-xs font-semibold mb-1" style={{ background: tab===t.key?T.charcoal:"#F2EEE6", color: tab===t.key?"white":"#8A8378" }}>{t.label}</button>
+        ))}
+      </div>
+
+      <div className="p-5 space-y-3">
+        {tab === "pending" && (pending.length===0 ? <p className="text-sm text-center py-10" style={{ color:"#A39C90" }}>Aucune annonce en attente.</p> : pending.map((p)=>(
+          <div key={p.id} className="rounded-2xl p-4" style={{ border:`1px solid ${T.line}` }}>
+            <div className="flex justify-between items-start mb-2">
+              <div><div className="font-semibold text-sm" style={{ color:T.charcoal }}>{p.title}</div><div className="text-xs" style={{ color:"#8A8378" }}>{priceFmt(p.price)} • {p.city}</div></div>
+              <span className="text-[10px] font-semibold px-2 py-1 rounded-full" style={{ background:`${T.gold}20`, color:"#8A6A0E" }}>En attente</span>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button onClick={()=>onDecision(p.id,"accepted")} className="flex-1 py-2 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1" style={{ background:T.green }}><Icon name="check" size={13} color="#fff"/> Accepter</button>
+              <button onClick={()=>setRefuseTarget(p.id)} className="flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1" style={{ background:"#F2EEE6", color:T.charcoal }}><Icon name="ban" size={13} color={T.charcoal}/> Refuser</button>
+            </div>
+            {refuseTarget === p.id && (
+              <div className="mt-3 pt-3" style={{ borderTop:`1px solid ${T.line}` }}>
+                <textarea value={refuseMsg} onChange={(e)=>setRefuseMsg(e.target.value)} className="w-full rounded-lg p-2 text-xs outline-none mb-2" rows={2} style={{ border:`1px solid ${T.line}` }}/>
+                <button onClick={()=>{ onDecision(p.id,"refused",refuseMsg); setRefuseTarget(null); }} className="w-full py-2 rounded-lg text-xs font-semibold text-white" style={{ background:"#D64545" }}>Envoyer le refus</button>
+              </div>
+            )}
+          </div>
+        )))}
+
+        {tab === "subs" && (subRequests.length===0 ? <p className="text-sm text-center py-10" style={{ color:"#A39C90" }}>Aucune demande d'abonnement.</p> : subRequests.map((r)=>(
+          <div key={r.id} className="rounded-2xl p-4" style={{ border:`1px solid ${T.line}` }}>
+            <div className="flex justify-between items-start mb-3">
+              <div><div className="font-semibold text-sm" style={{ color:T.charcoal }}>Plan {r.plan}</div><div className="text-xs" style={{ color:"#8A8378" }}>{priceFmt(r.price)}</div></div>
+              <span className="text-[10px] font-semibold px-2 py-1 rounded-full" style={{
+                background: r.status==="pending" ? `${T.gold}20` : r.status==="accepted" ? `${T.green}20` : "#D6454520",
+                color: r.status==="pending" ? "#8A6A0E" : r.status==="accepted" ? T.green : "#D64545" }}>
+                {r.status==="pending"?"En attente":r.status==="accepted"?"Approuvé":"Refusé"}
+              </span>
+            </div>
+            {r.receipt && (
+              <img src={r.receipt} onClick={()=>setZoomImg(r.receipt)} alt="Reçu" className="w-full h-40 object-cover rounded-xl mb-3 cursor-zoom-in" style={{ border:`1px solid ${T.line}` }}/>
+            )}
+            {r.status === "pending" && (
+              <div className="flex gap-2">
+                <button onClick={()=>onSubDecision(r.id,"accepted")} className="flex-1 py-2 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1" style={{ background:T.green }}><Icon name="check" size={13} color="#fff"/> Approuver</button>
+                <button onClick={()=>onSubDecision(r.id,"refused")} className="flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1" style={{ background:"#F2EEE6", color:T.charcoal }}><Icon name="ban" size={13} color={T.charcoal}/> Refuser</button>
+              </div>
+            )}
+          </div>
+        )))}
+
+        {tab === "users" && sellers.slice(0,40).map((s)=>(
+          <div key={s.id} className="flex items-center gap-3 rounded-2xl p-3" style={{ border:`1px solid ${T.line}` }}>
+            <img src={s.avatar} className="w-10 h-10 rounded-full object-cover"/>
+            <div className="flex-1"><div className="text-sm font-semibold" style={{ color:T.charcoal }}>{s.name}</div><div className="text-xs" style={{ color:"#8A8378" }}>{s.listingsCount} annonces • {s.city}</div></div>
+            <select defaultValue={s.badge.key} onChange={(e)=>onGrantSub(s.id, e.target.value)} className="text-xs rounded-lg px-2 py-1.5" style={{ border:`1px solid ${T.line}` }}>
+              {BADGES.map((b)=><option key={b.key} value={b.key}>{b.label}</option>)}
+            </select>
+          </div>
+        ))}
+
+        {tab === "listings" && listings.slice(0,60).map((l)=>(
+          <div key={l.id} className="flex items-center gap-3 rounded-2xl p-2" style={{ border:`1px solid ${T.line}` }}>
+            <img src={l.img} className="w-12 h-12 rounded-lg object-cover"/>
+            <div className="flex-1 min-w-0"><div className="text-xs font-semibold truncate" style={{ color:T.charcoal }}>{l.title}</div><div className="text-[11px]" style={{ color:"#8A8378" }}>{priceFmt(l.price)}</div></div>
+          </div>
+        ))}
+      </div>
+
+      {zoomImg && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-6" onClick={()=>setZoomImg(null)}>
+          <img src={zoomImg} className="max-w-full max-h-full rounded-xl"/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================= SELLER PROFILE ================= */
+function SellerProfile({ seller, listings, onClose, onOpenListing }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className="flex items-center gap-3 px-5 py-4 sticky top-0 bg-white z-10" style={{ borderBottom:`1px solid ${T.line}` }}>
+        <button onClick={onClose}><Icon name="arrowLeft" size={20} color={T.charcoal}/></button>
+        <h3 className="disp font-bold" style={{ color:T.charcoal }}>Profil vendeur</h3>
+      </div>
+      <div className="p-5 max-w-md mx-auto">
+        <div className="flex flex-col items-center text-center mb-6">
+          <img src={seller.avatar} className="w-20 h-20 rounded-full object-cover mb-3"/>
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="font-bold" style={{ color:T.charcoal }}>{seller.name}</span>
+            {seller.verified && <Icon name="badgeCheck" size={16} color={T.green}/>}
+          </div>
+          <Badge badge={seller.badge}/>
+          <div className="flex items-center gap-1 text-xs mt-2" style={{ color:"#8A8378" }}><Icon name="mapPin" size={12} color="#8A8378"/> {seller.city}</div>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mb-6">
+          {[{label:"Vues",value:seller.views,icon:"eye"},{label:"Ventes",value:seller.sales,icon:"bag"},{label:"Discussions",value:seller.discussions,icon:"chat"}].map((s)=>(
+            <div key={s.label} className="rounded-xl p-3 text-center" style={{ background:"#F2EEE6" }}>
+              <div className="flex justify-center mb-1"><Icon name={s.icon} size={15} color={T.papaya}/></div>
+              <div className="font-bold text-sm" style={{ color:T.charcoal }}>{s.value}</div><div className="text-[10px]" style={{ color:"#8A8378" }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="font-semibold text-sm mb-3" style={{ color:T.charcoal }}>{listings.length} annonces</div>
+        <div className="grid grid-cols-2 gap-3">{listings.map((l)=><ListingCard key={l.id} listing={l} seller={seller} onOpen={onOpenListing}/>)}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= LISTING DETAIL ================= */
+function ListingDetail({ listing, seller, onClose, onOpenSeller }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className="relative">
+        <img src={listing.img} className="w-full h-64 object-cover"/>
+        <button onClick={onClose} className="absolute top-4 left-4 w-9 h-9 rounded-full bg-white/90 flex items-center justify-center"><Icon name="arrowLeft" size={18} color={T.charcoal}/></button>
+      </div>
+      <div className="p-5 max-w-md mx-auto">
+        <h2 className="text-lg font-bold mb-1" style={{ color:T.charcoal }}>{listing.title}</h2>
+        <div className="disp text-xl font-bold mb-3" style={{ color:T.papaya }}>{priceFmt(listing.price)}</div>
+        <div className="flex items-center gap-3 text-xs mb-5" style={{ color:"#8A8378" }}>
+          <span className="flex items-center gap-1"><Icon name="mapPin" size={12} color="#8A8378"/> {listing.city}</span>
+          <span className="flex items-center gap-1"><Icon name="eye" size={12} color="#8A8378"/> {listing.views} vues</span>
+          <span className="flex items-center gap-1"><Icon name="clock" size={12} color="#8A8378"/> il y a {listing.createdDaysAgo}j</span>
+        </div>
+        {seller && (
+          <button onClick={()=>onOpenSeller(seller)} className="w-full flex items-center gap-3 rounded-2xl p-3 mb-5 text-left" style={{ border:`1px solid ${T.line}` }}>
+            <img src={seller.avatar} className="w-11 h-11 rounded-full object-cover"/>
+            <div className="flex-1">
+              <div className="text-sm font-semibold flex items-center gap-1" style={{ color:T.charcoal }}>{seller.name} {seller.verified && <Icon name="badgeCheck" size={13} color={T.green}/>}</div>
+              <Badge badge={seller.badge}/>
+            </div>
+            <Icon name="chevronRight" size={16} color="#C7C0B4"/>
+          </button>
+        )}
+        <button className="w-full py-3.5 rounded-xl font-semibold text-white flex items-center justify-center gap-2" style={{ background:T.green }}><Icon name="chat" size={16} color="#fff"/> Contacter le vendeur</button>
+      </div>
+    </div>
+  );
+}
+
+/* ================= MARKETPLACE ================= */
+function Marketplace() {
+  const [sellers] = useState(()=>genSellers(60));
+  const [listings] = useState(()=>genListings(sellers));
+  const [activeCat, setActiveCat] = useState("all");
+  const [query, setQuery] = useState("");
+  const [openListing, setOpenListing] = useState(null);
+  const [openSeller, setOpenSeller] = useState(null);
+  const [showPublish, setShowPublish] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [showSubModal, setShowSubModal] = useState(false);
+
+  const [sub, setSub] = useState(null);
+  const [pending, setPending] = useState([]);
+  const [userListings, setUserListings] = useState([]); // annonces publiées, partagées via Firestore
+  const [subRequests, setSubRequests] = useState([]);
+  const [sellerBadges, setSellerBadges] = useState({});
+  const [fbError, setFbError] = useState("");
+
+  // Écoute en temps réel des collections Firestore — synchronisé entre tous les appareils
+  useEffect(() => {
+    if (!db) { setFbError("Firebase indisponible" + (window.__fbInitError ? (" — " + window.__fbInitError) : " — vérifiez votre connexion internet") + ". L'app fonctionne en mode démo (annonces simulées uniquement)."); return; }
+    const unsubSub = db.collection("subscriptions").doc(DEVICE_ID).onSnapshot(
+      (doc)=>setSub(doc.exists ? doc.data() : null),
+      ()=>setFbError("Connexion à Firebase impossible — vérifiez votre connexion internet.")
+    );
+    const unsubPending = db.collection("pendingListings").orderBy("createdAt","desc").onSnapshot(
+      (snap)=>setPending(snap.docs.map((d)=>({ id:d.id, ...d.data() }))),
+      ()=>setFbError("Connexion à Firebase impossible — vérifiez votre connexion internet.")
+    );
+    const unsubListings = db.collection("listings").orderBy("createdAt","desc").onSnapshot(
+      (snap)=>setUserListings(snap.docs.map((d)=>({ id:d.id, ...d.data() }))),
+      ()=>setFbError("Connexion à Firebase impossible — vérifiez votre connexion internet.")
+    );
+    const unsubSubReq = db.collection("subscriptionRequests").orderBy("createdAt","desc").onSnapshot(
+      (snap)=>setSubRequests(snap.docs.map((d)=>({ id:d.id, ...d.data() }))),
+      ()=>setFbError("Connexion à Firebase impossible — vérifiez votre connexion internet.")
+    );
+    return ()=>{ unsubSub(); unsubPending(); unsubListings(); unsubSubReq(); };
+  }, []);
+
+  const refreshSubRequests = () => {}; // conservé pour compatibilité — la synchro est déjà en temps réel
+
+  const allListings = useMemo(()=>[...userListings, ...listings], [userListings, listings]);
+  const filtered = useMemo(()=>allListings.filter((l)=>{
+    if (activeCat !== "all" && l.catId !== activeCat) return false;
+    if (query && !l.title.toLowerCase().includes(query.toLowerCase())) return false;
+    return true;
+  }), [allListings, activeCat, query]);
+
+  const meListingsCount = userListings.filter((l)=>l.deviceId===DEVICE_ID).length;
+  const sellerFor = (id) => {
+    const mock = sellers.find((s)=>s.id===id);
+    if (mock) return mock;
+    if (id === DEVICE_ID || id === "me") return { id:DEVICE_ID, name:"Vous", avatar:"https://i.pravatar.cc/150?img=68", badge: sub ? BADGES.find(b=>b.label===sub.plan) || BADGES[3] : BADGES[0], city:"Abidjan", views:12, sales:0, discussions:0, verified:false, listingsCount:meListingsCount };
+    // Annonce publiée par un autre appareil/utilisateur réel — identité générée mais cohérente (pas encore de comptes)
+    const identity = identityForDevice(id);
+    return { id, ...identity, badge:BADGES[0], views:rand(20,600), sales:rand(0,15), discussions:rand(0,30), verified:false, listingsCount:userListings.filter((l)=>l.deviceId===id).length || 1 };
+  };
+
+  const handlePublish = (data) => {
+    setShowPublish(false);
+    if (!db) { setFbError("Firebase indisponible — impossible de publier pour le moment."); return; }
+    const { photos, ...rest } = data;
+    const img = (photos && photos[0]) || `https://picsum.photos/seed/${Date.now()}/480/360`;
+    if (sub) {
+      db.collection("listings").add({ ...rest, img, sellerId:DEVICE_ID, deviceId:DEVICE_ID, views:0, status:"active", createdDaysAgo:0, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+        .catch(()=>setFbError("Échec de la publication — vérifiez votre connexion internet."));
+    } else {
+      db.collection("pendingListings").add({ ...rest, img, deviceId:DEVICE_ID, status:"pending", createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+        .catch(()=>setFbError("Échec de l'envoi pour validation — vérifiez votre connexion internet."));
+    }
+  };
+
+  const handleAdminDecision = (id, decision, message) => {
+    if (!db) { setFbError("Firebase indisponible."); return; }
+    const item = pending.find((p)=>p.id===id);
+    db.collection("pendingListings").doc(id).delete().catch(()=>setFbError("Échec de la mise à jour — réessayez."));
+    if (decision === "accepted" && item) {
+      const img = item.img || `https://picsum.photos/seed/${Date.now()}/480/360`;
+      db.collection("listings").add({ title:item.title, catId:item.catId, price:item.price, city:item.city, img, sellerId:item.deviceId, deviceId:item.deviceId, views:0, status:"active", createdDaysAgo:0, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+        .catch(()=>setFbError("Échec de la publication de l'annonce — réessayez."));
+    }
+    // decision === "refused": message serait envoyé via Cloud Messaging en production
+  };
+
+  const handleSubDecision = (id, decision) => {
+    if (!db) { setFbError("Firebase indisponible."); return; }
+    const req = subRequests.find((r)=>r.id===id);
+    db.collection("subscriptionRequests").doc(id).update({ status:decision }).catch(()=>setFbError("Échec de la mise à jour — réessayez."));
+    if (decision === "accepted" && req) {
+      db.collection("subscriptions").doc(req.deviceId).set({ plan:req.plan, price:req.price, activatedAt:new Date().toISOString() })
+        .catch(()=>setFbError("Échec de l'activation de l'abonnement — réessayez."));
+    }
+  };
+
+  const handleGrantSub = (sellerId, badgeKey) => setSellerBadges((prev)=>({ ...prev, [sellerId]: BADGES.find((b)=>b.key===badgeKey) }));
+
+  return (
+    <div className="min-h-screen pb-24" style={{ background:T.sand }}>
+      <div className="sticky top-0 z-30 bg-white" style={{ borderBottom:`1px solid ${T.line}` }}>
+        <div className="flex items-center justify-between px-4 py-3 max-w-5xl mx-auto">
+          <Logo/>
+          <div className="flex items-center gap-2">
+            {!sub && (
+              <button onClick={()=>setShowSubModal(true)} className="text-xs font-semibold px-3 py-2 rounded-full text-white flex items-center gap-1" style={{ background:T.gold }}>
+                <Icon name="crown" size={13} color="#fff"/> Premium
+              </button>
+            )}
+            <button onClick={()=>{ refreshSubRequests(); setShowAdminLogin(true); }} className="w-9 h-9 rounded-full flex items-center justify-center relative" style={{ background:"#F2EEE6" }}>
+              <Icon name="shield" size={16} color={T.charcoal}/>
+              {(pending.length + subRequests.filter(r=>r.status==="pending").length) > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-white text-[9px] flex items-center justify-center font-bold" style={{ background:T.papaya }}>
+                  {pending.length + subRequests.filter(r=>r.status==="pending").length}
+                </span>
+              )}
+            </button>
+            <button onClick={()=>setOpenSeller(sellerFor("me"))} className="w-9 h-9 rounded-full overflow-hidden"><img src="https://i.pravatar.cc/150?img=68" className="w-full h-full object-cover"/></button>
+          </div>
+        </div>
+        <div className="px-4 pb-3 max-w-5xl mx-auto">
+          <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background:"#F2EEE6" }}>
+            <Icon name="search" size={16} color="#A39C90"/>
+            <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Rechercher un article, une marque…" className="flex-1 bg-transparent text-sm outline-none"/>
+          </div>
+        </div>
+        <div className="flex gap-2 px-4 pb-3 overflow-x-auto max-w-5xl mx-auto no-scrollbar">
+          <button onClick={()=>setActiveCat("all")} className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: activeCat==="all"?T.charcoal:"#F2EEE6", color: activeCat==="all"?"white":"#6B655C" }}>Tout</button>
+          {CATS.map((c)=>(
+            <button key={c.id} onClick={()=>setActiveCat(c.id)} className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: activeCat===c.id?T.charcoal:"#F2EEE6", color: activeCat===c.id?"white":"#6B655C" }}>{c.label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 pt-4">
+        {fbError && (
+          <div className="rounded-xl p-3 mb-3 text-xs" style={{ background:"#FDEDED", color:"#B23B3B" }}>{fbError}</div>
+        )}
+        <div className="text-xs mb-3" style={{ color:"#8A8378" }}>{filtered.length} annonces trouvées</div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {filtered.slice(0,100).map((l)=><ListingCard key={l.id} listing={l} seller={sellerFor(l.sellerId)} onOpen={setOpenListing}/>)}
+        </div>
+      </div>
+
+      <button onClick={()=>setShowPublish(true)} className="fixed bottom-6 right-6 w-14 h-14 rounded-full text-white flex items-center justify-center shadow-2xl active:scale-95 transition-transform z-30" style={{ background:`linear-gradient(135deg, ${T.papaya}, #FF8A5C)` }}>
+        <Icon name="plus" size={24} color="#fff"/>
+      </button>
+
+      {openListing && <ListingDetail listing={openListing} seller={sellerFor(openListing.sellerId)} onClose={()=>setOpenListing(null)} onOpenSeller={(s)=>{ setOpenListing(null); setOpenSeller(s); }}/>}
+      {openSeller && <SellerProfile seller={openSeller} listings={allListings.filter((l)=>l.sellerId===openSeller.id)} onClose={()=>setOpenSeller(null)} onOpenListing={(l)=>{ setOpenSeller(null); setOpenListing(l); }}/>}
+      {showPublish && <PublishForm onClose={()=>setShowPublish(false)} onSubmit={handlePublish} subscribed={!!sub}/>}
+      {showAdminLogin && <AdminLogin onClose={()=>setShowAdminLogin(false)} onSuccess={()=>{ setShowAdminLogin(false); setShowAdmin(true); }}/>}
+      {showAdmin && <AdminPanel onClose={()=>setShowAdmin(false)} pending={pending} subRequests={subRequests} sellers={sellers} listings={allListings} onDecision={handleAdminDecision} onSubDecision={handleSubDecision} onGrantSub={handleGrantSub}/>}
+      {showSubModal && <SubscriptionModal onClose={()=>setShowSubModal(false)} onRequestSubmitted={()=>setShowSubModal(false)}/>}
+    </div>
+  );
+}
+
+/* ================= ROOT APP ================= */
+function App() {
+  const [screen, setScreen] = useState("landing");
+  const [showSub, setShowSub] = useState(false);
+
+  if (screen === "landing") return <Landing onContinue={()=>setScreen("auth")}/>;
+  if (screen === "auth") return <Auth onDone={()=>setScreen("profileChoice")}/>;
+  if (screen === "profileChoice") return <ProfileChoice onChoose={()=>setScreen("referral")}/>;
+  if (screen === "referral") return <Referral onNext={()=>{ setScreen("market"); setShowSub(true); }}/>;
+
+  return (
+    <>
+      <Marketplace/>
+      {showSub && <SubscriptionModal onClose={()=>setShowSub(false)} onRequestSubmitted={()=>setShowSub(false)}/>}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
